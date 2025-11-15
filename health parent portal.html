@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>School Health Portal — Advanced (Illness editable)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root{--primary:#0b63ff;--muted:#6b7280;--bg:#f4f7fb}
+    body{margin:0;font-family:Inter,Segoe UI,Arial;background:var(--bg);color:#111}
+    header{background:linear-gradient(90deg,var(--primary),#3b82f6);color:white;padding:18px 24px;display:flex;justify-content:space-between;align-items:center}
+    header h1{margin:0;font-size:20px}
+    .container{padding:18px;max-width:1100px;margin:18px auto}
+    .card{background:white;border-radius:12px;padding:16px;box-shadow:0 6px 20px rgba(11,99,255,0.08);margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:18px}
+    .small{font-size:13px;color:var(--muted)}
+    label{display:block;font-weight:600;margin-bottom:6px}
+    input,select,textarea,button{font-family:inherit}
+    input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin-bottom:10px}
+    button{padding:10px 14px;border-radius:8px;border:none;background:var(--primary);color:white;cursor:pointer}
+    button.secondary{background:#6b7280}
+    .login-box{max-width:420px;margin:40px auto}
+    .credentials{background:#eef2ff;padding:10px;border-radius:8px;margin-top:8px;color:#0b63ff;font-weight:600}
+    .flex{display:flex;gap:8px;align-items:center}
+    .pill{display:inline-block;background:#eff6ff;color:#0b63ff;padding:6px 10px;border-radius:999px;font-weight:700}
+    .muted{color:var(--muted)}
+    .list{max-height:260px;overflow:auto}
+    .log{font-family:monospace;background:#f8fafc;padding:8px;border-radius:8px}
+    .right{text-align:right}
+    footer{padding:12px;text-align:center;color:var(--muted);font-size:13px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}.container{padding:12px}}
+  </style>
+</head>
+<body>
+
+<!--
+  DEMO CREDENTIALS:
+  Nurse: user = nurse123   / pass = nursepass
+  Parent (Aarav): user = stu01   / pass = pass01
+  Parent (Diya): user = stu02   / pass = pass02
+-->
+
+<header>
+  <h1>School Health Portal — Advanced</h1>
+  <div class="small">IoT demo • Nurse & Parent • Illness editable</div>
+</header>
+
+<div class="container">
+
+  <!-- LOGIN -->
+  <div id="loginScreen" class="card login-box">
+    <h2>Sign in</h2>
+    <p class="small">Use the demo accounts below or create users in Settings.</p>
+
+    <label for="inputUser">User ID</label>
+    <input id="inputUser" placeholder="e.g., nurse123 or stu01">
+
+    <label for="inputPass">Password</label>
+    <input id="inputPass" type="password" placeholder="Enter password">
+
+    <div class="flex" style="justify-content:space-between;">
+      <button id="btnLogin">Login</button>
+      <button id="btnDemo" class="secondary">Auto demo (nurse)</button>
+    </div>
+
+    <div class="credentials" id="credentialBox">
+      Nurse: <strong>nurse123</strong> / <strong>nursepass</strong><br>
+      Parent (Aarav): <strong>stu01</strong> / <strong>pass01</strong><br>
+      Parent (Diya): <strong>stu02</strong> / <strong>pass02</strong>
+    </div>
+
+    <div class="small muted" style="margin-top:10px">
+      Tip: Data is persisted in your browser localStorage — reload preserves data.
+    </div>
+  </div>
+
+  <!-- APP MAIN -->
+  <div id="app" class="hide" style="display:none">
+    <div class="card">
+      <div class="grid">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div class="pill" id="rolePill">ROLE</div>
+              <h2 id="welcome">Welcome</h2>
+              <div class="small muted" id="subWelcome">School Nurse</div>
+            </div>
+            <div class="right">
+              <div class="small muted">Signed in as</div>
+              <div id="signedUser" style="font-weight:700"></div>
+              <div style="margin-top:10px">
+                <button id="btnLogout" class="secondary">Logout</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="card">
+            <div class="small">Quick Actions</div>
+            <div style="margin-top:10px" class="flex">
+              <button id="btnNewStudent">Add Student</button>
+              <button id="btnSettings" class="secondary">Settings</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="small">IoT Simulation</div>
+            <div style="margin-top:8px" class="small muted">Select a student, then simulate a sensor reading (or start auto-stream)</div>
+            <select id="selSimStudent"></select>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <input id="simTemp" placeholder="Temp °F" value="98.6">
+              <input id="simPulse" placeholder="Pulse bpm" value="88">
+            </div>
+            <div style="display:flex;gap:8px;margin-top:8px">
+              <button id="btnSimSend">Send</button>
+              <button id="btnSimStart" class="secondary">Auto stream (10)</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div>
+        <div id="nurseArea" class="card"></div>
+        <div id="parentArea" class="card" style="display:none"></div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div><b>Students</b><div class="small muted">Active and all students</div></div>
+            <div><button id="btnRefresh" class="secondary">Refresh</button></div>
+          </div>
+          <div id="studentsList" class="list" style="margin-top:10px"></div>
+        </div>
+
+        <div class="card">
+          <b>Live Logs</b>
+          <div id="liveLogs" class="list log" style="margin-top:10px; max-height:220px; overflow:auto"></div>
+        </div>
+      </div>
+    </div>
+
+    <footer style="margin-top:12px">Demo portal • Data stored locally. Built-for-school demo.</footer>
+  </div>
+
+</div>
+
+<script>
+/* Single-file School Health Portal — merged + illness editable
+   - LocalStorage persistence
+   - Nurse selects disease from dropdown or types custom illness
+   - Illness saved to student record and added to illnessHistory
+   - Parent sees current illness + history
+   - IoT simulation updates health snapshot and logs
+*/
+
+/* ---------- Storage key & default data ---------- */
+const DEMO_KEY = 'school_health_merged_v1';
+const defaultStore = {
+  users: {
+    'nurse123': { password: 'nursepass', role: 'nurse', name: 'Mrs. Lakshmi' },
+    'stu01': { password: 'pass01', role: 'parent', name: 'Mr. Kumar', studentId: 's001' },
+    'stu02': { password: 'pass02', role: 'parent', name: 'Mrs. Ramesh', studentId: 's002' }
+  },
+  students: {
+    's001': {
+      id:'s001', name:'Aarav Kumar', grade:'6B', age:11, activeAdmission:true,
+      nurseNotes:'Mild fever and headache. Given Paracetamol.',
+      parentReply:'', illness:'Fever', illnessHistory:[{time:new Date().toISOString(), illness:'Fever'}],
+      health:{temp:'98.6', pulse:'88', time:new Date().toLocaleString()}, logs:[]
+    },
+    's002': {
+      id:'s002', name:'Diya Ramesh', grade:'7A', age:12, activeAdmission:false,
+      nurseNotes:'Slight dizziness. Observed and hydrated.',
+      parentReply:'', illness:'Headache', illnessHistory:[{time:new Date().toISOString(), illness:'Headache'}],
+      health:{temp:'98.0', pulse:'80', time:new Date().toLocaleString()}, logs:[]
+    }
+  }
+};
+
+function loadStore(){
+  const s = localStorage.getItem(DEMO_KEY);
+  if(!s){ localStorage.setItem(DEMO_KEY, JSON.stringify(defaultStore)); return JSON.parse(JSON.stringify(defaultStore)); }
+  try{ return JSON.parse(s); } catch(e){ localStorage.setItem(DEMO_KEY, JSON.stringify(defaultStore)); return JSON.parse(JSON.stringify(defaultStore)); }
+}
+function saveStore(store){ localStorage.setItem(DEMO_KEY, JSON.stringify(store)); }
+
+/* ---------- App state ---------- */
+let store = loadStore();
+let currentUser = null; let currentRole = null; let currentStudentId = null;
+let charts = {temp:null, pulse:null};
+
+/* ---------- DOM refs ---------- */
+const loginScreen = document.getElementById('loginScreen'), appDiv = document.getElementById('app');
+const inputUser = document.getElementById('inputUser'), inputPass = document.getElementById('inputPass');
+const btnLogin = document.getElementById('btnLogin'), btnDemo = document.getElementById('btnDemo'), btnLogout = document.getElementById('btnLogout');
+const rolePill = document.getElementById('rolePill'), welcome = document.getElementById('welcome'), subWelcome = document.getElementById('subWelcome');
+const signedUser = document.getElementById('signedUser'), studentsList = document.getElementById('studentsList'), liveLogs = document.getElementById('liveLogs');
+const selSimStudent = document.getElementById('selSimStudent'), simTemp = document.getElementById('simTemp'), simPulse = document.getElementById('simPulse');
+const btnSimSend = document.getElementById('btnSimSend'), btnSimStart = document.getElementById('btnSimStart');
+const btnNewStudent = document.getElementById('btnNewStudent'), btnSettings = document.getElementById('btnSettings'), btnRefresh = document.getElementById('btnRefresh');
+const nurseArea = document.getElementById('nurseArea'), parentArea = document.getElementById('parentArea');
+
+/* ---------- Auth ---------- */
+function showLogin(){ loginScreen.style.display='block'; appDiv.style.display='none'; }
+function showApp(){ loginScreen.style.display='none'; appDiv.style.display='block'; renderApp(); }
+
+btnLogin.addEventListener('click', ()=>{
+  const uid = inputUser.value.trim(), pw = inputPass.value;
+  if(!uid||!pw){ alert('Enter User ID & password'); return; }
+  const u = store.users[uid];
+  if(!u || u.password !== pw){ alert('Invalid credentials'); return; }
+  currentUser = uid; currentRole = u.role;
+  signedUser.textContent = u.name || uid; rolePill.textContent = currentRole.toUpperCase();
+  welcome.textContent = (currentRole==='nurse') ? 'Nurse Dashboard' : 'Parent Dashboard';
+  subWelcome.textContent = (currentRole==='nurse') ? 'Manage admissions & illness' : 'View your child status & reply';
+  showApp();
+});
+
+btnDemo.addEventListener('click', ()=>{ inputUser.value='nurse123'; inputPass.value='nursepass'; btnLogin.click(); });
+btnLogout.addEventListener('click', ()=>{ currentUser=null; currentRole=null; showLogin(); });
+
+/* ---------- Render students list ---------- */
+function renderStudentsList(){
+  studentsList.innerHTML=''; Object.values(store.students).forEach(s => {
+    const div = document.createElement('div'); div.className='small card'; div.style.marginBottom='8px';
+    div.innerHTML = `<div style="display:flex;justify-content:space-between">
+      <div><b>${s.name}</b><div class="small muted">${s.grade} • Age ${s.age}</div></div>
+      <div style="text-align:right">
+        <div class="small">${s.activeAdmission ? '<span style="color:crimson">In Sick Room</span>' : '<span style="color:green">OK</span>'}</div>
+        <div style="margin-top:6px">
+          <button onclick="viewStudent('${s.id}')">View</button>
+          <button class="secondary" onclick="toggleAdmission('${s.id}')">${s.activeAdmission ? 'Discharge' : 'Admit'}</button>
+        </div>
+      </div></div>`;
+    studentsList.appendChild(div);
+  });
+}
+
+/* ---------- View student ---------- */
+function viewStudent(sid){
+  currentStudentId = sid; renderNurseArea(); renderParentArea(); updateSimSelector(); scrollToTop();
+}
+
+/* ---------- Admit/discharge ---------- */
+function toggleAdmission(sid){
+  store.students[sid].activeAdmission = !store.students[sid].activeAdmission; saveStore(store);
+  renderStudentsList(); renderNurseArea(); renderParentArea();
+}
+
+/* ---------- Nurse area (detailed) ---------- */
+function renderNurseArea(){
+  if(currentRole !== 'nurse'){ nurseArea.style.display='none'; return; }
+  nurseArea.style.display='block'; let html='';
+  if(currentStudentId){
+    const s = store.students[currentStudentId];
+    html += `<h3>${s.name} <span class="small muted">• ${s.grade}</span></h3>
+      <div class="small muted">Age ${s.age} • Admission: ${s.activeAdmission ? 'Active' : 'Not active'}</div><hr>
+      <div style="display:flex;gap:10px"><div style="flex:1">
+        <label>Nurse Notes</label>
+        <textarea id="nurseNotes" placeholder="Enter nurse notes...">${s.nurseNotes||''}</textarea>
+        <label>Illness / Condition</label>
+        <div style="display:flex;gap:8px">
+          <select id="illnessSelect">
+            <option value="">-- Select condition --</option>
+            <option>Fever</option><option>Cold & Cough</option><option>Headache</option>
+            <option>Stomach pain</option><option>Allergy</option><option>Asthma</option><option>Injury</option>
+          </select>
+          <input id="illnessCustom" placeholder="Or type custom illness">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button onclick="saveNurseData('${s.id}')">Save & notify</button>
+          <button class="secondary" onclick="clearIllness('${s.id}')">Clear illness</button>
+        </div>
+      </div>
+      <div style="width:200px">
+        <label>Health Snapshot</label>
+        <div class="card small muted">
+          Temp: <span id="snapTemp">${s.health.temp}</span> °F<br>
+          Pulse: <span id="snapPulse">${s.health.pulse}</span> bpm<br>
+          Updated: ${s.health.time}
+        </div>
+        <div style="margin-top:10px">
+          <label>Current illness</label>
+          <div style="background:#fff7f7;padding:8px;border-radius:8px;color:#9b1111">${s.illness || '—'}</div>
+        </div>
+      </div></div>
+      <hr>
+      <div><b>Illness History</b>
+        <div class="small muted" style="margin-top:8px">${renderIllnessHistoryHTML(s)}</div></div>
+      <hr>
+      <div><b>Live Charts</b>
+        <canvas id="chartTemp" height="120" style="margin-top:8px"></canvas>
+        <canvas id="chartPulse" height="100" style="margin-top:12px"></canvas>
+      </div>
+      <hr>
+      <div><b>Parent Reply</b><div class="small muted" style="margin-top:6px">${s.parentReply || 'No reply'}</div></div>`;
+  } else {
+    html += `<h3>Welcome — Select a student from the right</h3><div class="small muted">You can add a new student or click View to open a student record.</div>`;
+  }
+  nurseArea.innerHTML = html; initCharts(); renderStudentsList(); populateIllnessInputs();
+}
+
+/* ---------- Helper: illness history HTML ---------- */
+function renderIllnessHistoryHTML(s){
+  if(!s.illnessHistory || !s.illnessHistory.length) return 'No history';
+  const rows = s.illnessHistory.slice().reverse().map(it=>`<div style="padding:6px;border-bottom:1px solid #f0f0f0">${new Date(it.time).toLocaleString()} — <b>${it.illness}</b></div>`).join('');
+  return rows;
+}
+
+/* ---------- Save nurse data (notes + illness) ---------- */
+function saveNurseData(sid){
+  const notes = document.getElementById('nurseNotes').value;
+  const sel = document.getElementById('illnessSelect').value;
+  const custom = document.getElementById('illnessCustom').value.trim();
+  const illness = custom || sel || '';
+  const s = store.students[sid];
+  s.nurseNotes = notes;
+  if(illness){
+    s.illness = illness;
+    s.illnessHistory = s.illnessHistory || [];
+    s.illnessHistory.push({ time: new Date().toISOString(), illness });
+  }
+  saveStore(store);
+  alert('Saved. Parent will see the update.');
+  renderNurseArea();
+  renderParentArea();
+}
+
+/* ---------- Clear illness ---------- */
+function clearIllness(sid){
+  const s = store.students[sid]; s.illness = ''; saveStore(store); alert('Illness cleared'); renderNurseArea(); renderParentArea();
+}
+
+/* ---------- Parent area ---------- */
+function renderParentArea(){
+  if(currentRole !== 'parent'){ parentArea.style.display='none'; return; }
+  parentArea.style.display='block';
+  const u = store.users[currentUser]; const sid = u?.studentId;
+  if(!sid || !store.students[sid]){ parentArea.innerHTML = `<h3>No linked student</h3><div class="small muted">Contact admin to link.</div>`; return; }
+  const s = store.students[sid];
+  parentArea.innerHTML = `<h3>Child: ${s.name}</h3><div class="small muted">${s.grade} • Age ${s.age}</div><hr>
+    <div><b>Current illness</b><div class="small muted" style="margin-top:6px">${s.illness || '—'}</div></div>
+    <div style="margin-top:8px"><b>Nurse update</b><div class="small muted" style="margin-top:6px">${s.nurseNotes || 'No update'}</div></div>
+    <div style="margin-top:8px">
+      <label>Your reply to nurse</label>
+      <textarea id="parentReply">${s.parentReply || ''}</textarea>
+      <div style="margin-top:8px"><button onclick="sendParentReply('${sid}')">Send Reply</button></div>
+    </div>
+    <hr><div><b>Illness History</b><div class="small muted" style="margin-top:8px">${renderIllnessHistoryHTML(s)}</div></div>
+    <hr><div><b>Health Snapshot</b><div class="card small-muted" style="margin-top:8px">Temp: ${s.health.temp} °F<br>Pulse: ${s.health.pulse} bpm<br>Last: ${s.health.time}</div></div>`;
+}
+
+/* ---------- Parent reply ---------- */
+function sendParentReply(sid){
+  const txt = document.getElementById('parentReply').value;
+  store.students[sid].parentReply = txt; saveStore(store);
+  alert('Reply sent to nurse.'); renderParentArea(); renderNurseArea();
+}
+
+/* ---------- Add new student ---------- */
+btnNewStudent.addEventListener('click', ()=>{
+  const name = prompt('Student name'); if(!name) return;
+  const grade = prompt('Grade (e.g., 8A)') || 'Unknown'; const age = prompt('Age') || '0';
+  const sid = 's'+Math.floor(Math.random()*90000+10000);
+  store.students[sid] = { id:sid, name, grade, age:parseInt(age)||0, activeAdmission:false, nurseNotes:'', parentReply:'', illness:'', illnessHistory:[], health:{temp:'--', pulse:'--', time:'--'}, logs:[] };
+  saveStore(store); renderStudentsList(); updateSimSelector(); alert('Student added: '+name);
+});
+
+/* ---------- Settings: create parent user and link ---------- */
+btnSettings.addEventListener('click', ()=>{
+  const uid = prompt('New parent user id (e.g., stu03)'); if(!uid) return;
+  if(store.users[uid]) return alert('User exists');
+  const pwd = prompt('Password'); const name = prompt('Parent name');
+  const sid = prompt('Student ID to link (e.g., s001)'); if(!store.students[sid]) return alert('Invalid student id');
+  store.users[uid] = { password: pwd||'pass', role:'parent', name: name||uid, studentId: sid }; saveStore(store); alert('Parent created: '+uid);
+});
+
+/* ---------- Charts ---------- */
+function initCharts(){
+  const ctxT = document.getElementById('chartTemp')?.getContext('2d');
+  const ctxP = document.getElementById('chartPulse')?.getContext('2d');
+  if(!ctxT || !ctxP) return;
+  const logs = store.students[currentStudentId]?.logs || [];
+  const labels = logs.map(l=> new Date(l.time).toLocaleTimeString());
+  const temps = logs.map(l=> parseFloat(l.temp));
+  const pulses = logs.map(l=> parseInt(l.pulse));
+
+  if(charts.temp) charts.temp.destroy();
+  if(charts.pulse) charts.pulse.destroy();
+
+  charts.temp = new Chart(ctxT, { type:'line', data:{ labels, datasets:[{ label:'Temp °F', data:temps, borderColor:'#ff6b6b', tension:0.3, fill:false }]}, options:{scales:{y:{beginAtZero:false}}}});
+  charts.pulse = new Chart(ctxP, { type:'line', data:{ labels, datasets:[{ label:'Pulse bpm', data:pulses, borderColor:'#0b63ff', tension:0.3, fill:false }]}, options:{scales:{y:{beginAtZero:true}}}});
+}
+
+/* ---------- IoT Simulation ---------- */
+btnSimSend.addEventListener('click', ()=>{ const sid = selSimStudent.value; if(!sid) return alert('Select student'); const t=parseFloat(simTemp.value)||98.6; const p=parseInt(simPulse.value)||80; pushReading(sid,t,p); });
+btnSimStart.addEventListener('click', async ()=>{ const sid = selSimStudent.value; if(!sid) return alert('Select student'); for(let i=0;i<10;i++){ const t=(98 + Math.random()*3).toFixed(1); const p=Math.floor(70 + Math.random()*50); pushReading(sid,t,p); await new Promise(r=>setTimeout(r,300)); } alert('Streamed'); });
+
+function pushReading(studentId, temp, pulse){
+  const time = new Date().toISOString();
+  const entry = { time, temp:temp.toString(), pulse:pulse.toString() };
+  const s = store.students[studentId]; s.logs = s.logs || []; s.logs.push(entry);
+  s.health = { temp: temp.toString(), pulse: pulse.toString(), time: (new Date()).toLocaleString() };
+  // optional: auto-detect fever and push to illness/illnessHistory
+  if(temp >= 100.4){ s.illness = 'Fever'; s.illnessHistory = s.illnessHistory || []; s.illnessHistory.push({ time:new Date().toISOString(), illness:'Fever (auto-detected)' }); }
+  saveStore(store);
+  liveLogs.insertAdjacentHTML('afterbegin', `<div>${s.name} ${new Date().toLocaleTimeString()} — Temp:${temp}°F Pulse:${pulse}</div>`);
+  if(currentStudentId === studentId) initCharts();
+  renderStudentsList(); renderParentArea(); renderNurseArea();
+}
+
+/* ---------- Update sim selector ---------- */
+function updateSimSelector(){
+  selSimStudent.innerHTML = ''; Object.values(store.students).forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent = `${s.name} (${s.grade})`; selSimStudent.appendChild(o); });
+}
+
+/* ---------- Helpers ---------- */
+function populateIllnessInputs(){
+  const s = store.students[currentStudentId];
+  if(!s) return;
+  const select = document.getElementById('illnessSelect');
+  const custom = document.getElementById('illnessCustom');
+  if(!select) return;
+  // set select to match current illness if it's one of options
+  let matched = false;
+  for(const opt of select.options){ if(opt.value.toLowerCase() === (s.illness||'').toLowerCase()){ select.value = opt.value; matched = true; break; } }
+  if(!matched){ select.value = ''; custom.value = s.illness || ''; }
+  else custom.value = '';
+}
+
+function scrollToTop(){ window.scrollTo({top:0,behavior:'smooth'}); }
+
+/* ---------- Refresh ---------- */
+btnRefresh.addEventListener('click', ()=>{ renderStudentsList(); updateSimSelector(); });
+
+/* ---------- Initial render ---------- */
+function renderApp(){ updateSimSelector(); renderStudentsList(); liveLogs.innerHTML=''; // load recent logs
+  Object.values(store.students).forEach(s=>{ if(s.logs && s.logs.length) s.logs.slice(-5).reverse().forEach(l => liveLogs.insertAdjacentHTML('afterbegin', `<div>${s.name} ${new Date(l.time).toLocaleTimeString()} — Temp:${l.temp}°F Pulse:${l.pulse}</div>`)); });
+  if(currentRole==='nurse'){ nurseArea.style.display='block'; parentArea.style.display='none'; } else if(currentRole==='parent'){ nurseArea.style.display='none'; parentArea.style.display='block'; renderParentArea(); }
+}
+
+/* ---------- Auto-login restore (optional) ---------- */
+// Could implement persistent login by storing current user in localStorage.
+
+showLogin();
+</script>
+
+</body>
+</html>
